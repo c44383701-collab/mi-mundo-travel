@@ -135,7 +135,7 @@ export default function MiMundo() {
       </div>
 
       <Dialog open={!!info} onOpenChange={(o) => !o && setInfo(null)}>
-        <DialogContent className="border-white/10 bg-[#12141C] sm:max-w-md" data-testid="country-info-dialog">
+        <DialogContent className="max-h-[90vh] overflow-y-auto border-white/10 bg-[#12141C] sm:max-w-md" data-testid="country-info-dialog">
           {info && (<>
             <DialogHeader>
               <div className="mb-2">{info.inList && <Flag code={info.code} className="h-12 w-[72px]" w={160} />}</div>

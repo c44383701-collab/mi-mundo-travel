@@ -75,11 +75,11 @@ def render_tile(z: int, x: int, y: int, visited: frozenset) -> bytes:
     if key not in _tiles:
         data, complete = _render(z, x, y, visited)
         if not complete:
-            return data
+            return data, False
         if len(_tiles) > 3000:
             _tiles.clear()
         _tiles[key] = data
-    return _tiles[key]
+    return _tiles[key], True
 
 
 def _render(z, x, y, visited):
@@ -108,7 +108,7 @@ def _render(z, x, y, visited):
             d.polygon(rings[0], fill=255)
             for hole in rings[1:]:
                 d.polygon(hole, fill=0)
-            flag = _flag(code)
+            flag = _flags.get(code)
             if flag is None:
                 complete = False
                 layer = Image.new("RGB", (TS, TS), (0, 180, 216))

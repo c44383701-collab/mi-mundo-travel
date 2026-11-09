@@ -13,6 +13,7 @@ export default function CitySearch({ country, onSelect, placeholder = "Buscar ci
   useEffect(() => {
     if (q.trim().length < 2) { setRes([]); setLoading(false); setError(""); return; }
     let stale = false;
+    setRes([]);
     const t = setTimeout(async () => {
       setLoading(true);
       setError("");

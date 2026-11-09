@@ -11,6 +11,7 @@ export const featureCode = (f) => {
   return p.ISO_A2_EH && p.ISO_A2_EH !== "-99" ? p.ISO_A2_EH : p.ISO_A2;
 };
 const polysOf = (f) => (f.geometry.type === "Polygon" ? [f.geometry.coordinates] : f.geometry.coordinates);
+const TINY_R = { VA: 0.02, MC: 0.03, GI: 0.06, SM: 0.08, LI: 0.1, AD: 0.12 };
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 export default function WorldGlobe({ visited = [], names = {}, places = [], pins = [], cities = [], onCountryClick, onCityClick, height = 520, focus, testId = "world-globe" }) {
@@ -91,7 +92,7 @@ export default function WorldGlobe({ visited = [], names = {}, places = [], pins
           onPolygonClick={(d, _e, at) => {
             const code = featureCode(d);
             // tiny countries/territories (Gibraltar, Vaticano…) have no click polygon: pick them when clicked nearby
-            const tiny = at && places.find((p) => p.code !== code && !featureCodes.has(p.code) && Math.hypot(p.lat - at.lat, p.lng - at.lng) < 0.35);
+            const tiny = at && places.find((p) => p.code !== code && !featureCodes.has(p.code) && Math.hypot(p.lat - at.lat, p.lng - at.lng) < (TINY_R[p.code] ?? 0.2));
             if (tiny) return clickRef.current?.(tiny.code);
             clickRef.current?.(code, d.properties.NAME_ES || d.properties.NAME);
           }}

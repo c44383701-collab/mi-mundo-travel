@@ -17,6 +17,7 @@ from fastapi.responses import Response
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field
 from pymongo import ASCENDING, DESCENDING, IndexModel
+from pymongo.errors import DuplicateKeyError
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.cors import CORSMiddleware
 
@@ -221,11 +222,12 @@ def map_tile(z: int, x: int, y: int, v: str = ""):
         raise HTTPException(404, "Tile fuera de rango")
     codes = frozenset(c for c in v.upper().split(",") if c in COUNTRY_BY_CODE)
     try:
-        data = render_tile(z, x, y, codes)
+        data, complete = render_tile(z, x, y, codes)
     except Exception as exc:
         logger.warning("tile %s/%s/%s failed: %s", z, x, y, exc)
         raise HTTPException(502, "Mapa no disponible")
-    return Response(content=data, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=604800"})
+    return Response(content=data, media_type="image/jpeg",
+                    headers={"Cache-Control": "public, max-age=604800" if complete else "no-store"})
 
 
 @api.get("/geo/cities")
@@ -505,8 +507,9 @@ async def create_city(body: CityIn, profile: dict = Depends(get_profile)):
     await db.cities.insert_one(dict(doc))
     country_added = False
     if body.mark_country_visited and not await db.visited_countries.find_one({"user_id": uid, "country_code": code}):
-        await add_visited(uid, code, body.visit_date)
-        country_added = True
+        with suppress(DuplicateKeyError):
+            await add_visited(uid, code, body.visit_date)
+            country_added = True
     doc.pop("_id", None)
     return {"city": await enrich_city(doc), "country_added": country_added}
 
@@ -528,7 +531,7 @@ async def update_city(city_id: str, body: CityUpdate, profile: dict = Depends(ge
     start, end = data.get("visit_date", city.get("visit_date")), data.get("end_date", city.get("end_date"))
     if start and end and end < start:
         raise HTTPException(400, "La fecha final es anterior a la inicial")
-    if data.get("cover_photo_id") and not await db.photos.find_one({"id": data["cover_photo_id"], "user_id": profile["user_id"]}):
+    if data.get("cover_photo_id") and not await db.photos.find_one({"id": data["cover_photo_id"], "user_id": profile["user_id"], "city_id": city_id, "is_deleted": False}):
         raise HTTPException(404, "Foto no encontrada")
     if "trip_id" in data and data["trip_id"] != city.get("trip_id"):
         if data["trip_id"]:
@@ -811,7 +814,7 @@ async def public_city(token: str):
     c = await db.cities.find_one({"share_token": token}, {"_id": 0, "user_id": 1, "id": 1})
     if not c:
         raise HTTPException(404, "Enlace no válido")
-    city = await db.cities.find_one({"id": c["id"]}, {"_id": 0, "user_id": 0, "comments": 0})
+    city = await db.cities.find_one({"id": c["id"]}, {"_id": 0, "user_id": 0, "comments": 0, "share_token": 0})
     photos = await db.photos.find({"city_id": c["id"], "is_deleted": False, "kind": "gallery"}, {"_id": 0}).sort([("order", 1)]).to_list(500)
     return {"city": await enrich_city(city), "photos": [photo_out(p) for p in photos], "owner": await owner_card(c["user_id"])}
 
@@ -822,10 +825,11 @@ async def public_trip(token: str):
     if not t:
         raise HTTPException(404, "Enlace no válido")
     uid = t.pop("user_id")
+    t.pop("share_token", None)
     trip = await enrich_trip(t)
     for c in trip["cities"]:
-        c.pop("user_id", None)
-        c.pop("comments", None)
+        for k in ("user_id", "comments", "share_token"):
+            c.pop(k, None)
     photos = await db.photos.find({"trip_id": t["id"], "is_deleted": False, "kind": "gallery"}, {"_id": 0}).sort("created_at", 1).to_list(500)
     return {"trip": trip, "photos": [photo_out(p) for p in photos], "owner": await owner_card(uid)}
 
@@ -898,7 +902,7 @@ async def unfollow(username: str, profile: dict = Depends(get_profile)):
 
 async def public_trip_or_404(trip_id: str) -> dict:
     t = await db.trips.find_one({"id": trip_id, "is_public": True}, {"_id": 0})
-    if not t:
+    if not t or not await db.profiles.find_one({"user_id": t["user_id"], "is_public": True}, {"_id": 1}):
         raise HTTPException(404, "Publicación no disponible")
     return t
 
