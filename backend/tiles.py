@@ -1,5 +1,6 @@
 import io
 import json
+from concurrent.futures import ThreadPoolExecutor
 import math
 from functools import lru_cache
 from pathlib import Path
@@ -46,14 +47,20 @@ def _sat(z, x, y) -> bytes:
     return r.content
 
 
-@lru_cache(maxsize=256)
+_flags = {}
+_pool = ThreadPoolExecutor(8)
+_tiles = {}
+
+
 def _flag(code):
-    try:
-        r = _http.get(FLAG_URL.format(code=code.lower()), timeout=20)
-        r.raise_for_status()
-        return Image.open(io.BytesIO(r.content)).convert("RGB")
-    except Exception:
-        return None
+    if code not in _flags:
+        try:
+            r = _http.get(FLAG_URL.format(code=code.lower()), timeout=20)
+            r.raise_for_status()
+            _flags[code] = Image.open(io.BytesIO(r.content)).convert("RGB")
+        except Exception:
+            return None  # not cached, retried on the next tile
+    return _flags[code]
 
 
 def _tile_lonlat_bbox(z, x, y):
@@ -63,15 +70,30 @@ def _tile_lonlat_bbox(z, x, y):
     return lon0, lat(y + 1), lon1, lat(y)
 
 
-@lru_cache(maxsize=2048)
 def render_tile(z: int, x: int, y: int, visited: frozenset) -> bytes:
+    key = (z, x, y, visited)
+    if key not in _tiles:
+        data, complete = _render(z, x, y, visited)
+        if not complete:
+            return data
+        if len(_tiles) > 3000:
+            _tiles.clear()
+        _tiles[key] = data
+    return _tiles[key]
+
+
+def _render(z, x, y, visited):
+    tb = _tile_lonlat_bbox(z, x, y)
+    needed = {code for code, items in FEATURES if code in visited and any(
+        not (b[2] < tb[0] or b[0] > tb[2] or b[3] < tb[1] or b[1] > tb[3]) for _, b in items)}
+    list(_pool.map(_flag, needed))
+    complete = True
     sat = Image.open(io.BytesIO(_sat(z, x, y))).convert("RGB")
     if sat.size != (TS, TS):
         sat = sat.resize((TS, TS))
     dim = ImageEnhance.Brightness(ImageOps.grayscale(sat).convert("RGB")).enhance(0.72)
     out = Image.blend(dim, Image.new("RGB", (TS, TS), (8, 22, 48)), 0.22)
     ox, oy = x * TS, y * TS
-    tb = _tile_lonlat_bbox(z, x, y)
     borders = []
     for code, items in FEATURES:
         for poly, (bx0, by0, bx1, by1) in items:
@@ -88,6 +110,7 @@ def render_tile(z: int, x: int, y: int, visited: frozenset) -> bytes:
                 d.polygon(hole, fill=0)
             flag = _flag(code)
             if flag is None:
+                complete = False
                 layer = Image.new("RGB", (TS, TS), (0, 180, 216))
             else:
                 gx0, gy1 = _px(bx0, by0, z)
@@ -106,4 +129,4 @@ def render_tile(z: int, x: int, y: int, visited: frozenset) -> bytes:
         d.line(ring + [ring[0]], fill=(255, 255, 255, 110), width=width)
     buf = io.BytesIO()
     out.save(buf, "JPEG", quality=88)
-    return buf.getvalue()
+    return buf.getvalue(), complete

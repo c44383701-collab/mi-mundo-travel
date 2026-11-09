@@ -13,7 +13,7 @@ export const featureCode = (f) => {
 const polysOf = (f) => (f.geometry.type === "Polygon" ? [f.geometry.coordinates] : f.geometry.coordinates);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
-export default function WorldGlobe({ visited = [], names = {}, pins = [], cities = [], onCountryClick, onCityClick, height = 520, focus, testId = "world-globe" }) {
+export default function WorldGlobe({ visited = [], names = {}, places = [], pins = [], cities = [], onCountryClick, onCityClick, height = 520, focus, testId = "world-globe" }) {
   const wrap = useRef(null);
   const globe = useRef(null);
   const clickRef = useRef(onCountryClick);
@@ -39,6 +39,7 @@ export default function WorldGlobe({ visited = [], names = {}, pins = [], cities
     if (focus && globe.current) globe.current.pointOfView({ lat: focus.lat, lng: focus.lng, altitude: 1.4 }, 1200);
   }, [focus]);
 
+  const featureCodes = useMemo(() => new Set(features.map(featureCode)), [features]);
   // flag pins only for countries too small to see from far away; city names only when zoomed in
   const html = useMemo(() => {
     const wide = new Set();
@@ -87,7 +88,13 @@ export default function WorldGlobe({ visited = [], names = {}, pins = [], cities
           polygonAltitude={0.002}
           polygonLabel={(d) => `<div class="globe-tip">${esc(names[featureCode(d)] || d.properties.NAME_ES || d.properties.NAME)}</div>`}
           onPolygonHover={near ? undefined : setHover}
-          onPolygonClick={(d) => clickRef.current?.(featureCode(d), d.properties.NAME_ES || d.properties.NAME)}
+          onPolygonClick={(d, _e, at) => {
+            const code = featureCode(d);
+            // tiny countries/territories (Gibraltar, Vaticano…) have no click polygon: pick them when clicked nearby
+            const tiny = at && places.find((p) => p.code !== code && !featureCodes.has(p.code) && Math.hypot(p.lat - at.lat, p.lng - at.lng) < 0.35);
+            if (tiny) return clickRef.current?.(tiny.code);
+            clickRef.current?.(code, d.properties.NAME_ES || d.properties.NAME);
+          }}
           htmlElementsData={html}
           htmlAltitude={0.003}
           htmlElement={(d) => {

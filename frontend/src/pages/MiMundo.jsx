@@ -69,7 +69,7 @@ export default function MiMundo() {
   return (
     <div data-testid="mi-mundo-page">
       <section className="relative">
-        <WorldGlobe visited={codes} names={names} pins={pins} cities={cities} onCityClick={(c) => nav(`/ciudades/${c.id}`)} onCountryClick={openInfo} focus={focus} height={Math.min(window.innerHeight * 0.66, 680)} />
+        <WorldGlobe visited={codes} names={names} places={list} pins={pins} cities={cities} onCityClick={(c) => nav(`/ciudades/${c.id}`)} onCountryClick={openInfo} focus={focus} height={Math.min(window.innerHeight * 0.66, 680)} />
         <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-4 sm:p-8">
           <div className="fade-up">
             <p className="label-x text-cyan-300">Mi Mundo</p>

@@ -236,6 +236,7 @@ async def search_cities(q: str = Query(..., min_length=2), country: Optional[str
     try:
         async with httpx.AsyncClient(timeout=10) as c:
             r = await c.get("https://geocoding-api.open-meteo.com/v1/search", params=params)
+        r.raise_for_status()
         results = r.json().get("results") or []
     except Exception as exc:
         logger.warning("geocoding failed: %s", exc)
@@ -524,8 +525,11 @@ async def get_city(city_id: str, profile: dict = Depends(get_profile)):
 async def update_city(city_id: str, body: CityUpdate, profile: dict = Depends(get_profile)):
     city = await own_city(city_id, profile["user_id"])
     data = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None or k != "name"}
-    if data.get("visit_date") and data.get("end_date") and data["end_date"] < data["visit_date"]:
+    start, end = data.get("visit_date", city.get("visit_date")), data.get("end_date", city.get("end_date"))
+    if start and end and end < start:
         raise HTTPException(400, "La fecha final es anterior a la inicial")
+    if data.get("cover_photo_id") and not await db.photos.find_one({"id": data["cover_photo_id"], "user_id": profile["user_id"]}):
+        raise HTTPException(404, "Foto no encontrada")
     if "trip_id" in data and data["trip_id"] != city.get("trip_id"):
         if data["trip_id"]:
             trip = await own_trip(data["trip_id"], profile["user_id"])
@@ -939,7 +943,7 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup():
-    app.state.index_task = asyncio.create_task(ensure_indexes())
+    await ensure_indexes()
     try:
         await run_in_threadpool(storage.init_storage)
         logger.info("Storage initialized")
@@ -949,7 +953,4 @@ async def startup():
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
-    app.state.index_task.cancel()
-    with suppress(asyncio.CancelledError):
-        await app.state.index_task
     client.close()
