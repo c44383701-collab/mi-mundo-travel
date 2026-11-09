@@ -28,7 +28,8 @@ export default function ProfileEditDialog({ open, onOpenChange, me }) {
   useEffect(() => {
     if (open && me) setF({ username: me.username, display_name: me.display_name, bio: me.bio || "", country_code: me.country_code,
       home_city: me.home_city, is_public: me.is_public, show_countries: me.show_countries, show_cities: me.show_cities, show_photos: me.show_photos });
-  }, [open, me]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
 
   const onAvatar = async (file) => {

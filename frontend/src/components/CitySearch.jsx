@@ -12,16 +12,17 @@ export default function CitySearch({ country, onSelect, placeholder = "Buscar ci
 
   useEffect(() => {
     if (q.trim().length < 2) { setRes([]); return; }
+    let stale = false;
     const t = setTimeout(async () => {
       setLoading(true);
       setError("");
       try {
         const r = await api.get("/geo/cities", { params: { q, country: country || undefined } });
-        setRes(r.data);
-      } catch { setError("El buscador no responde. Puedes añadirla manualmente."); }
-      setLoading(false);
+        if (!stale) setRes(r.data);
+      } catch { if (!stale) setError("El buscador no responde. Puedes añadirla manualmente."); }
+      if (!stale) setLoading(false);
     }, 350);
-    return () => clearTimeout(t);
+    return () => { stale = true; clearTimeout(t); };
   }, [q, country, api]);
 
   return (

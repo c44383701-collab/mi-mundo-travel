@@ -26,6 +26,7 @@ export default function CountryPicker({ value, onChange, disabledCodes = [], mul
               className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors ${sel ? "bg-[#0066FF]/20 text-cyan-200" : "hover:bg-white/5"} ${dis ? "cursor-not-allowed opacity-40" : ""}`}>
               <Flag code={c.code} />
               <span className="flex-1">{c.name}</span>
+              {c.territory && <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-slate-300">Territorio</span>}
               {dis && <span className="text-[11px] text-slate-500">Ya visitado</span>}
               {sel && <Check className="h-4 w-4 text-cyan-300" />}
             </button>

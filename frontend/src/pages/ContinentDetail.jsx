@@ -11,7 +11,7 @@ export default function ContinentDetail() {
   const m = CONTINENT_META[key];
   if (!m) return <div className="page">Continente no encontrado</div>;
   if (!visited) return <PageLoader />;
-  const all = list.filter((c) => c.continent === key).sort((a, b) => a.name.localeCompare(b.name, "es"));
+  const all = list.filter((c) => c.continent === key && !c.territory).sort((a, b) => a.name.localeCompare(b.name, "es"));
   const vmap = Object.fromEntries(visited.map((v) => [v.country_code, v]));
   const done = all.filter((c) => vmap[c.code]), todo = all.filter((c) => !vmap[c.code]);
   const pct = all.length ? (done.length / all.length) * 100 : 0;

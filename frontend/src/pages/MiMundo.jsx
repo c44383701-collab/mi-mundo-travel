@@ -36,6 +36,7 @@ export default function MiMundo() {
   const [params] = useSearchParams();
   const { data: visited = [] } = useApiQuery(["visited"], "/visited");
   const { data: stats } = useApiQuery(["stats"], "/stats");
+  const { data: cities = [] } = useApiQuery(["cities"], "/cities");
   const { list, byCode } = useCountries();
   const [addOpen, setAddOpen] = useState(params.get("add") === "1");
   const [initial, setInitial] = useState(null);
@@ -50,7 +51,7 @@ export default function MiMundo() {
   const names = useMemo(() => Object.fromEntries(list.map((c) => [c.code, c.name])), [list]);
   const pins = useMemo(() => visited.map((v) => ({ code: v.country_code, lat: v.lat, lng: v.lng })), [visited]);
   const sorted = [...visited].sort((a, b) => a.name.localeCompare(b.name, "es"));
-  const pending = list.filter((c) => !codes.includes(c.code) && norm(c.name).includes(norm(q))).sort((a, b) => a.name.localeCompare(b.name, "es"));
+  const pending = list.filter((c) => !c.territory && !codes.includes(c.code) && norm(c.name).includes(norm(q))).sort((a, b) => a.name.localeCompare(b.name, "es"));
   const infoVisited = info && visited.find((v) => v.country_code === info.code);
 
   const openInfo = (code, fallback) => {
@@ -68,7 +69,7 @@ export default function MiMundo() {
   return (
     <div data-testid="mi-mundo-page">
       <section className="relative">
-        <WorldGlobe visited={codes} names={names} pins={pins} onCountryClick={openInfo} focus={focus} height={Math.min(window.innerHeight * 0.66, 680)} />
+        <WorldGlobe visited={codes} names={names} pins={pins} cities={cities} onCityClick={(c) => nav(`/ciudades/${c.id}`)} onCountryClick={openInfo} focus={focus} height={Math.min(window.innerHeight * 0.66, 680)} />
         <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-4 sm:p-8">
           <div className="fade-up">
             <p className="label-x text-cyan-300">Mi Mundo</p>
@@ -97,7 +98,7 @@ export default function MiMundo() {
         <section>
           <SectionTitle title="Mis países" action={
             <div className="flex rounded-full bg-[#181B28] p-1 text-sm">
-              {[["visited", `Visitados (${visited.length})`], ["pending", `Pendientes (${195 - visited.length})`]].map(([k, l]) => (
+              {[["visited", `Visitados (${visited.length})`], ["pending", `Pendientes (${195 - (stats?.countries_visited || 0)})`]].map(([k, l]) => (
                 <button key={k} onClick={() => setTab(k)} data-testid={`countries-tab-${k}`} className={`rounded-full px-3 py-1.5 font-semibold transition-colors ${tab === k ? "bg-[#0066FF] text-white" : "text-slate-400"}`}>{l}</button>
               ))}
             </div>
@@ -139,7 +140,7 @@ export default function MiMundo() {
             <DialogHeader>
               <div className="mb-2">{info.inList && <Flag code={info.code} className="h-12 w-[72px]" w={160} />}</div>
               <DialogTitle className="font-display text-3xl">{info.name}</DialogTitle>
-              <DialogDescription>{info.inList ? `${CONTINENT_META[byCode[info.code].continent].name} · ${infoVisited ? "Visitado" : "Pendiente"}` : "Territorio fuera de la lista de 195 países de referencia"}</DialogDescription>
+              <DialogDescription>{info.inList ? `${CONTINENT_META[byCode[info.code].continent].name}${byCode[info.code].territory ? " · Territorio (no cuenta en el % de 195)" : ""} · ${infoVisited ? "Visitado" : "Pendiente"}` : "Territorio fuera de la lista de 195 países de referencia"}</DialogDescription>
             </DialogHeader>
             {infoVisited && (
               <div className="space-y-3">

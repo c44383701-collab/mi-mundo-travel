@@ -1,0 +1,4 @@
+.runtime/
+db_snapshot/*
+!db_snapshot/*.sh
+regressions/*/preflight/database.archive.gz*

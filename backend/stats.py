@@ -1,7 +1,7 @@
 import math
 from collections import Counter
 
-from countries_data import CONTINENTS, CONTINENT_TOTALS, COUNTRY_BY_CODE, TOTAL_COUNTRIES
+from countries_data import CONTINENTS, CONTINENT_TOTALS, COUNTRY_BY_CODE, SOVEREIGN_CODES, TOTAL_COUNTRIES
 
 LEVELS = [(0, "Turista curioso"), (5, "Explorador"), (10, "Aventurero"), (25, "Trotamundos"), (50, "Leyenda viajera")]
 
@@ -14,10 +14,14 @@ def haversine(a_lat, a_lng, b_lat, b_lng) -> float:
     return 2 * r * math.asin(math.sqrt(h))
 
 
-def trip_days(trip: dict) -> int:
+def trip_days(trip: dict, until_today: bool = False) -> int:
     from datetime import date
     try:
         s, e = date.fromisoformat(trip["start_date"][:10]), date.fromisoformat(trip["end_date"][:10])
+        if until_today:
+            if s > date.today():
+                return 0
+            e = min(e, date.today())
         return max((e - s).days + 1, 1)
     except (KeyError, TypeError, ValueError):
         return 0
@@ -52,7 +56,8 @@ async def compute_stats(db, profile: dict) -> dict:
     n_photos = await db.photos.count_documents({**base, "media_type": "image"})
     n_videos = await db.photos.count_documents({**base, "media_type": "video"})
 
-    codes = {v["country_code"] for v in visited if v["country_code"] in COUNTRY_BY_CODE}
+    codes = {v["country_code"] for v in visited if v["country_code"] in SOVEREIGN_CODES}
+    territories = [v["country_code"] for v in visited if v["country_code"] in COUNTRY_BY_CODE and v["country_code"] not in SOVEREIGN_CODES]
     cont_visited = Counter(COUNTRY_BY_CODE[c]["continent"] for c in codes)
     continents = [{"key": k, "name": name, "visited": cont_visited.get(k, 0), "total": CONTINENT_TOTALS[k],
                    "percent": round(cont_visited.get(k, 0) / CONTINENT_TOTALS[k] * 100, 1)}
@@ -102,12 +107,13 @@ async def compute_stats(db, profile: dict) -> dict:
     return {
         "countries_visited": n_countries,
         "total_countries": TOTAL_COUNTRIES,
+        "territories_visited": len(territories),
         "world_percent": round(n_countries / TOTAL_COUNTRIES * 100, 1),
         "cities_visited": n_cities,
         "continents_explored": n_continents,
         "continents": continents,
         "trips": len(trips),
-        "days_traveling": sum(trip_days(t) for t in trips),
+        "days_traveling": sum(trip_days(t, until_today=True) for t in trips),
         "photos": n_photos,
         "videos": n_videos,
         "km_traveled": km,

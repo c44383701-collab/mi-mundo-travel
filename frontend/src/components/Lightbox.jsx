@@ -7,6 +7,7 @@ export default function Lightbox({ photos, index, onClose, onIndex, children }) 
   const p = photos[index];
   useEffect(() => {
     const k = (e) => {
+      if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)) return;
       if (e.key === "Escape") onClose();
       if (e.key === "ArrowRight") onIndex((index + 1) % photos.length);
       if (e.key === "ArrowLeft") onIndex((index - 1 + photos.length) % photos.length);

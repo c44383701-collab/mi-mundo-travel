@@ -25,13 +25,15 @@ load_dotenv(ROOT_DIR / '.env')
 
 try:
     from backend.clerk_auth import clerk_router, require_user, verify_session_token
-    from backend.countries_data import COUNTRIES, COUNTRY_BY_CODE, CONTINENTS, CONTINENT_TOTALS, TOTAL_COUNTRIES
+    from backend.countries_data import COUNTRIES, COUNTRY_BY_CODE, CONTINENTS, CONTINENT_TOTALS, TOTAL_COUNTRIES, TERRITORIES
     from backend.stats import compute_stats, trip_days
+    from backend.tiles import render_tile
     from backend import storage
 except ModuleNotFoundError:
     from clerk_auth import clerk_router, require_user, verify_session_token
-    from countries_data import COUNTRIES, COUNTRY_BY_CODE, CONTINENTS, CONTINENT_TOTALS, TOTAL_COUNTRIES
+    from countries_data import COUNTRIES, COUNTRY_BY_CODE, CONTINENTS, CONTINENT_TOTALS, TOTAL_COUNTRIES, TERRITORIES
     from stats import compute_stats, trip_days
+    from tiles import render_tile
     import storage
 
 client = AsyncIOMotorClient(os.environ['MONGO_URL'])
@@ -135,10 +137,11 @@ async def get_profile(user: dict = Depends(require_user)) -> dict:
 
 async def optional_profile(request: Request) -> Optional[dict]:
     auth = request.headers.get("authorization", "")
-    if not auth.lower().startswith("bearer "):
+    token = auth[7:] if auth.lower().startswith("bearer ") else request.cookies.get("__session", "")
+    if not token:
         return None
     try:
-        claims = verify_session_token(auth[7:])
+        claims = verify_session_token(token)
     except HTTPException:
         return None
     return await db.profiles.find_one({"user_id": claims["sub"]}, {"_id": 0})
@@ -190,7 +193,8 @@ async def me(profile: dict = Depends(get_profile)):
 
 @api.put("/me")
 async def update_me(body: ProfileUpdate, profile: dict = Depends(get_profile)):
-    data = body.model_dump(exclude_unset=True)
+    data = {k: v for k, v in body.model_dump(exclude_unset=True).items()
+            if v is not None or k in ("bio", "country_code", "home_city")}
     if "username" in data:
         data["username"] = (data["username"] or "").strip().lower()
         if not USERNAME_RE.match(data["username"]):
@@ -208,7 +212,20 @@ async def update_me(body: ProfileUpdate, profile: dict = Depends(get_profile)):
 @api.get("/countries")
 async def countries():
     return {"total": TOTAL_COUNTRIES, "continents": [{"key": k, "name": v, "total": CONTINENT_TOTALS[k]} for k, v in CONTINENTS.items()],
-            "countries": COUNTRIES}
+            "countries": COUNTRIES + TERRITORIES}
+
+
+@api.get("/tiles/{z}/{x}/{y}.jpg")
+def map_tile(z: int, x: int, y: int, v: str = ""):
+    if not (0 <= z <= 19 and 0 <= x < 2 ** z and 0 <= y < 2 ** z):
+        raise HTTPException(404, "Tile fuera de rango")
+    codes = frozenset(c for c in v.upper().split(",") if c in COUNTRY_BY_CODE)
+    try:
+        data = render_tile(z, x, y, codes)
+    except Exception as exc:
+        logger.warning("tile %s/%s/%s failed: %s", z, x, y, exc)
+        raise HTTPException(502, "Mapa no disponible")
+    return Response(content=data, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=604800"})
 
 
 @api.get("/geo/cities")
@@ -389,7 +406,8 @@ async def get_trip(trip_id: str, profile: dict = Depends(get_profile)):
 @api.put("/trips/{trip_id}")
 async def update_trip(trip_id: str, body: TripUpdate, profile: dict = Depends(get_profile)):
     await own_trip(trip_id, profile["user_id"])
-    data = clean_trip(body.model_dump(exclude_unset=True))
+    data = clean_trip({k: v for k, v in body.model_dump(exclude_unset=True).items()
+                       if v is not None or k in ("description", "start_date", "end_date", "cover_photo_id")})
     data["updated_at"] = now_iso()
     await db.trips.update_one({"id": trip_id}, {"$set": data})
     return await enrich_trip(await own_trip(trip_id, profile["user_id"]))
@@ -473,6 +491,8 @@ async def list_cities(country: Optional[str] = None, trip_id: Optional[str] = No
 async def create_city(body: CityIn, profile: dict = Depends(get_profile)):
     uid = profile["user_id"]
     code = check_country(body.country_code)
+    if body.visit_date and body.end_date and body.end_date < body.visit_date:
+        raise HTTPException(400, "La fecha final es anterior a la inicial")
     if body.trip_id:
         trip = await own_trip(body.trip_id, uid)
         if code not in trip.get("country_codes", []):
@@ -502,10 +522,16 @@ async def get_city(city_id: str, profile: dict = Depends(get_profile)):
 
 @api.put("/cities/{city_id}")
 async def update_city(city_id: str, body: CityUpdate, profile: dict = Depends(get_profile)):
-    await own_city(city_id, profile["user_id"])
-    data = body.model_dump(exclude_unset=True)
-    if data.get("trip_id"):
-        await own_trip(data["trip_id"], profile["user_id"])
+    city = await own_city(city_id, profile["user_id"])
+    data = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None or k != "name"}
+    if data.get("visit_date") and data.get("end_date") and data["end_date"] < data["visit_date"]:
+        raise HTTPException(400, "La fecha final es anterior a la inicial")
+    if "trip_id" in data and data["trip_id"] != city.get("trip_id"):
+        if data["trip_id"]:
+            trip = await own_trip(data["trip_id"], profile["user_id"])
+            if city["country_code"] not in trip.get("country_codes", []):
+                await db.trips.update_one({"id": trip["id"]}, {"$push": {"country_codes": city["country_code"]}})
+        await db.photos.update_many({"city_id": city_id}, {"$set": {"trip_id": data["trip_id"]}})
     if data.get("cover_photo_id"):
         if not await db.photos.find_one({"id": data["cover_photo_id"], "user_id": profile["user_id"]}):
             raise HTTPException(404, "Foto no encontrada")
@@ -519,8 +545,11 @@ async def update_city(city_id: str, body: CityUpdate, profile: dict = Depends(ge
 @api.delete("/cities/{city_id}")
 async def delete_city(city_id: str, profile: dict = Depends(get_profile)):
     await own_city(city_id, profile["user_id"])
+    ids = [p["id"] async for p in db.photos.find({"city_id": city_id}, {"id": 1})]
     await db.cities.delete_one({"id": city_id})
     await db.photos.update_many({"city_id": city_id}, {"$set": {"is_deleted": True}})
+    await db.trips.update_many({"user_id": profile["user_id"], "cover_photo_id": {"$in": ids}}, {"$set": {"cover_photo_id": None}})
+    await db.visited_countries.update_many({"user_id": profile["user_id"], "photo_id": {"$in": ids}}, {"$set": {"photo_id": None}})
     return {"ok": True}
 
 
@@ -549,6 +578,7 @@ async def share_city(city_id: str, profile: dict = Depends(get_profile)):
 
 # ---------------- Photos ----------------
 MAX_IMAGE = 25 * 1024 * 1024
+ALLOWED_IMAGES = {"image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif", "image/avif"}
 MAX_VIDEO = 100 * 1024 * 1024
 
 
@@ -569,7 +599,7 @@ def photo_out(p: dict) -> dict:
 
 async def store_upload(uid: str, f: UploadFile, kind: str, **links) -> dict:
     ctype = f.content_type or ""
-    if not (ctype.startswith("image/") or ctype.startswith("video/")):
+    if not (ctype in ALLOWED_IMAGES or ctype.startswith("video/")):
         raise HTTPException(400, f"Formato no admitido: {f.filename}")
     media = "video" if ctype.startswith("video/") else "image"
     data = await f.read()
@@ -655,14 +685,33 @@ async def reorder_photos(body: ReorderIn, profile: dict = Depends(get_profile)):
     return {"ok": True}
 
 
+async def can_view_photo(rec: dict, request: Request) -> bool:
+    if rec.get("kind") == "avatar":
+        return True
+    viewer = await optional_profile(request)
+    if viewer and viewer["user_id"] == rec["user_id"]:
+        return True
+    if rec.get("city_id") and await db.cities.find_one({"id": rec["city_id"], "share_token": {"$ne": None}}, {"_id": 1}):
+        return True
+    if rec.get("trip_id") and await db.trips.find_one({"id": rec["trip_id"], "share_token": {"$ne": None}}, {"_id": 1}):
+        return True
+    owner = await db.profiles.find_one({"user_id": rec["user_id"]}, {"_id": 0, "is_public": 1, "show_photos": 1})
+    if not owner or not owner.get("is_public"):
+        return False
+    if owner.get("show_photos", True):
+        return True
+    return bool(rec.get("trip_id") and await db.trips.find_one({"id": rec["trip_id"], "is_public": True, "cover_photo_id": rec["id"]}, {"_id": 1}))
+
+
 @api.get("/files/{photo_id}")
-async def serve_file(photo_id: str):
+async def serve_file(photo_id: str, request: Request):
     rec = await db.photos.find_one({"id": photo_id, "is_deleted": False}, {"_id": 0})
-    if not rec:
+    if not rec or not await can_view_photo(rec, request):
         raise HTTPException(404, "Archivo no encontrado")
     data, ctype = await run_in_threadpool(storage.get_object, rec["storage_path"])
     return Response(content=data, media_type=rec.get("content_type") or ctype,
-                    headers={"Cache-Control": "public, max-age=86400"})
+                    headers={"Cache-Control": "private, max-age=3600", "X-Content-Type-Options": "nosniff",
+                             "Content-Security-Policy": "default-src 'none'; sandbox"})
 
 
 # ---------------- Stats, achievements, passport ----------------
@@ -725,7 +774,14 @@ async def public_view(prof: dict, viewer: Optional[dict]) -> dict:
         cities = await db.cities.find({"user_id": uid}, {"_id": 0, "name": 1, "country_code": 1}).to_list(2000)
         out["cities"] = cities
     trips = await db.trips.find({"user_id": uid, "is_public": True}, {"_id": 0}).sort("start_date", -1).to_list(100)
-    out["trips"] = [await enrich_trip(t, light=True) for t in trips]
+    out["trips"] = []
+    for t in trips:
+        et = await enrich_trip(t, light=True)
+        et.pop("share_token", None)
+        et.pop("user_id", None)
+        if not prof.get("show_cities", True):
+            et["cities"] = []
+        out["trips"].append(et)
     if prof.get("show_photos", True):
         out["stats"]["photos"] = stats["photos"]
         photos = await db.photos.find({"user_id": uid, "is_deleted": False, "kind": "gallery", "media_type": "image"}, {"_id": 0}).sort("created_at", -1).to_list(30)

@@ -210,8 +210,50 @@ for _line in _RAW.strip().splitlines():
     _code, _name, _cont, _lat, _lng = _line.split("|")
     COUNTRIES.append({"code": _code, "name": _name, "continent": _cont, "lat": float(_lat), "lng": float(_lng)})
 
-COUNTRY_BY_CODE = {c["code"]: c for c in COUNTRIES}
 TOTAL_COUNTRIES = len(COUNTRIES)
 CONTINENT_TOTALS = {k: sum(1 for c in COUNTRIES if c["continent"] == k) for k in CONTINENTS}
+
+# Territories: can be marked as visited (passport, list) but never count toward the 195 % or continent totals
+_TERR = """
+GI|Gibraltar|EU|36.14|-5.35|GB
+FO|Islas Feroe|EU|62.0|-6.9|DK
+XK|Kosovo|EU|42.6|20.9|
+JE|Jersey|EU|49.21|-2.13|GB
+GG|Guernsey|EU|49.45|-2.58|GB
+IM|Isla de Man|EU|54.24|-4.55|GB
+AX|Åland|EU|60.18|19.92|FI
+TW|Taiwán|AS|23.7|121.0|
+HK|Hong Kong|AS|22.32|114.17|CN
+MO|Macao|AS|22.2|113.55|CN
+GL|Groenlandia|AM|72.0|-40.0|DK
+PR|Puerto Rico|AM|18.22|-66.59|US
+AW|Aruba|AM|12.52|-69.97|NL
+CW|Curazao|AM|12.17|-68.98|NL
+SX|Sint Maarten|AM|18.04|-63.05|NL
+BM|Bermudas|AM|32.32|-64.76|GB
+KY|Islas Caimán|AM|19.3|-81.25|GB
+VG|Islas Vírgenes Británicas|AM|18.42|-64.64|GB
+VI|Islas Vírgenes de EE. UU.|AM|18.34|-64.9|US
+GP|Guadalupe|AM|16.25|-61.58|FR
+MQ|Martinica|AM|14.64|-61.02|FR
+GF|Guayana Francesa|AM|3.93|-53.13|FR
+FK|Islas Malvinas|AM|-51.8|-59.5|GB
+RE|Reunión|AF|-21.12|55.53|FR
+YT|Mayotte|AF|-12.83|45.17|FR
+EH|Sáhara Occidental|AF|24.2|-12.9|
+PF|Polinesia Francesa|OC|-17.68|-149.4|FR
+NC|Nueva Caledonia|OC|-20.9|165.6|FR
+GU|Guam|OC|13.44|144.79|US
+"""
+TERRITORIES = []
+for _line in _TERR.strip().splitlines():
+    _code, _name, _cont, _lat, _lng, _sov = _line.split("|")
+    TERRITORIES.append({"code": _code, "name": _name, "continent": _cont, "lat": float(_lat), "lng": float(_lng),
+                        "territory": True, "sovereign": _sov or None})
+for _c in COUNTRIES:
+    _c["territory"] = False
+
+COUNTRY_BY_CODE = {c["code"]: c for c in COUNTRIES + TERRITORIES}
+SOVEREIGN_CODES = {c["code"] for c in COUNTRIES}
 
 assert TOTAL_COUNTRIES == 195, TOTAL_COUNTRIES

@@ -18,7 +18,7 @@ export default function Explore() {
   const [addCity, setAddCity] = useState(false);
   const { list } = useCountries();
   const { data: ex } = useApiQuery(["explore"], "/explore");
-  const countries = list.filter((c) => (!cont || c.continent === cont) && norm(c.name).includes(norm(q))).sort((a, b) => a.name.localeCompare(b.name, "es"));
+  const countries = list.filter((c) => !c.territory && (!cont || c.continent === cont) && norm(c.name).includes(norm(q))).sort((a, b) => a.name.localeCompare(b.name, "es"));
   const names = useMemo(() => Object.fromEntries(list.map((c) => [c.code, c.name])), [list]);
 
   return (

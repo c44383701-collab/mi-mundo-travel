@@ -1,7 +1,8 @@
 import "@/App.css";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Show } from "@clerk/react";
+import { useEffect, useRef } from "react";
+import { Show, useAuth } from "@clerk/react";
 import { Toaster } from "sonner";
 import ClerkAuthProvider from "@/components/auth/ClerkAuthProvider";
 import AppShell from "@/components/AppShell";
@@ -23,6 +24,16 @@ import { SharedCity, SharedTrip } from "@/pages/Shared";
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { refetchOnWindowFocus: false, retry: 1 } } });
 
+const CacheGuard = () => {
+  const { userId, isLoaded } = useAuth();
+  const prev = useRef(userId);
+  useEffect(() => {
+    if (isLoaded && prev.current !== userId) queryClient.clear();
+    prev.current = userId;
+  }, [userId, isLoaded]);
+  return null;
+};
+
 const Protected = ({ children }) => (
   <>
     <Show when="signed-in">{children}</Show>
@@ -41,6 +52,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <ClerkAuthProvider>
+          <CacheGuard />
           <AppShell>
             <Routes>
               <Route path="/" element={<><Show when="signed-in"><HomePage /></Show><Show when="signed-out"><Landing /></Show></>} />
