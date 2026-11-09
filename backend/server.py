@@ -538,6 +538,9 @@ async def update_city(city_id: str, body: CityUpdate, profile: dict = Depends(ge
             trip = await own_trip(data["trip_id"], profile["user_id"])
             if city["country_code"] not in trip.get("country_codes", []):
                 await db.trips.update_one({"id": trip["id"]}, {"$push": {"country_codes": city["country_code"]}})
+        ids = [p["id"] async for p in db.photos.find({"city_id": city_id}, {"id": 1})]
+        if city.get("trip_id"):
+            await db.trips.update_one({"id": city["trip_id"], "cover_photo_id": {"$in": ids}}, {"$set": {"cover_photo_id": None}})
         await db.photos.update_many({"city_id": city_id}, {"$set": {"trip_id": data["trip_id"]}})
     if data.get("cover_photo_id"):
         if not await db.photos.find_one({"id": data["cover_photo_id"], "user_id": profile["user_id"]}):

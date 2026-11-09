@@ -86,9 +86,11 @@ async def compute_stats(db, profile: dict) -> dict:
         top = max(with_elev, key=lambda c: c["elevation"])
         altitude = {"name": top["name"], "meters": round(top["elevation"])}
 
-    country_counter = Counter(c["country_code"] for c in cities)
+    # one visit per trip that includes the country, plus each city visited outside any trip
+    country_counter = Counter(c["country_code"] for c in cities if not c.get("trip_id"))
     for t in trips:
-        country_counter.update(t.get("country_codes") or [])
+        if t.get("status") != "pendiente":
+            country_counter.update(set(t.get("country_codes") or []) | {c["country_code"] for c in cities if c.get("trip_id") == t["id"]})
     most_country = None
     if country_counter:
         code, cnt = country_counter.most_common(1)[0]
