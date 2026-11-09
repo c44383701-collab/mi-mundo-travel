@@ -1,0 +1,75 @@
+{
+  "project_name": "MI MUNDO – Pasaporte digital y red social de viajes",
+  "language": "es",
+  "theme": "dark",
+  "archetype": "Electric & Neon Tactical Travel (Dark Mode Premium)",
+  "overview": "MI MUNDO es un pasaporte digital y red social de viajes interactiva en español. Combina un diseño oscuro de alta precisión (fondo negro y antracita profundo) con acentos de azul eléctrico, turquesa neón y coral vibrante, inspirada libremente en la estética de exploración global pero con identidad propia premium.",
+  "typography": {
+    "font_family_heading": "'Outfit', 'Plus Jakarta Sans', sans-serif",
+    "font_family_body": "'Plus Jakarta Sans', -apple-system, sans-serif",
+    "font_family_mono": "'JetBrains Mono', monospace",
+    "google_fonts_import": "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap",
+    "scale": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-tight",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight",
+      "h3": "text-xl sm:text-2xl font-semibold",
+      "h4": "text-lg sm:text-xl font-medium",
+      "body": "text-sm sm:text-base leading-relaxed text-slate-300",
+      "caption": "text-xs font-mono uppercase tracking-wider text-slate-400"
+    }
+  },
+  "colors": {
+    "background_main": "#090A0F",
+    "background_anthracite": "#12141C",
+    "background_card": "#181B28",
+    "background_card_hover": "#222638",
+    "border_subtle": "rgba(255, 255, 255, 0.08)",
+    "border_glow": "rgba(0, 240, 255, 0.3)",
+    "electric_blue": "#0066FF",
+    "neon_turquoise": "#00F0FF",
+    "neon_coral": "#FF4D6D",
+    "neon_amber": "#FFB800",
+    "emerald_green": "#10B981",
+    "text_primary": "#F8FAFC",
+    "text_secondary": "#94A3B8",
+    "text_muted": "#64748B",
+    "gradients": {
+      "blue_turquoise": "bg-gradient-to-r from-[#0066FF] to-[#00F0FF]",
+      "coral_amber": "bg-gradient-to-r from-[#FF4D6D] to-[#FFB800]",
+      "dark_card": "bg-gradient-to-b from-[#181B28] to-[#12141C]",
+      "halo": "radial-gradient(circle, rgba(0, 240, 255, 0.15) 0%, rgba(9, 10, 15, 0) 70%)"
+    }
+  },
+  "layout_navigation": {
+    "desktop": "Sidebar fija a la izquierda (`w-64`), fondo `#12141C` con borde sutil a la derecha, logotipo arriba con resplandor turquesa, enlaces con iconos modernos (`lucide-react`) y estado activo con píldora turquesa/azul.",
+    "mobile": "Barra de navegación inferior fija (`fixed bottom-0 left-0 right-0 z-50 h-16`), fondo `#12141C/90` con `backdrop-blur-md` y borde superior `rgba(255,255,255,0.08)`. 5 items clave: Inicio, Mi Perfil, Mi Mundo, Explorar, Descubrir.",
+    "padding_adjustment": "En móvil, la vista principal debe incluir `pb-20` para evitar solapamiento con la barra inferior fija."
+  },
+  "key_sections": {
+    "inicio": "Resumen de perfil con avatar, estadísiticas flash (% mundo explorado, países, fotos), widget 'Último Viaje', carrusel 'Últimos Países' y 'Últimas Fotos', botón de acción principal '+ Nuevo Viaje'.",
+    "mi_perfil": "Cabecera con portada de viaje de alto impacto, bio, país de origen, stats row, seguidores/siguiendo, tarjetas de viaje grandes con badge de estado (Pendiente, En curso, Completado).",
+    "mi_mundo": "Hero 3D interactivo / Canvas interactivo del globo terráqueo rodeado de estrellas y halo azul. Tarjeta gigante de stats del mundo ('16,4 % EXPLORADO, 32/195 países, 148 ciudades, 4 continentes'), barras de progreso por continente con gradientes (Coral, Ámbar, Turquesa), píldoras de países visitados con banderas y botón '+ Añadir país visitado'.",
+    "detalle_pais_ciudad": "Encabezado con bandera oficial, fechas, galería fotográfica en grid con Lightbox interactivo fullscreen, resumen de lugares visitados, recuerdos y comentarios.",
+    "mis_estadisticas": "Tarjetas estáticas neón con imágenes de fondo o degradados (países, ciudades, continentes, días viajados, fotos, km recorridos, punto más lejano de casa, mayor altitud). Badges de Logros/Achievements (bloqueados y desbloqueados).",
+    "mi_pasaporte": "Pasaporte digital interactivo con sellos bordados/tinta vintage con colores de la bandera correspondiente, fecha de entrada, código de aeropuerto e impresiones numéricas táctiles."
+  },
+  "component_patterns": {
+    "cards": "Esquinas muy redondeadas (`rounded-2xl` o `rounded-3xl`), fondo `#181B28`, borde `1px border-white/10`, sombra suave ambiental, transición hover con elevación `-translate-y-1` y brillo turquesa.",
+    "buttons": "Botones en píldora (`rounded-full`) o rectangular redondeado (`rounded-xl`), color de marca primario azul eléctrico `#0066FF` con texto blanco, hover con degradado turquesa y micro-animación de escala `active:scale-95`.",
+    "stamps": "Sellos de pasaporte con forma circular o poligonal irregular, borde entintado punteado o doble, tipografía monospaced en mayúsculas, efecto rotado sutil (-6deg a +8deg) e icono/bandera central."
+  },
+  "image_urls": {
+    "hero_landscape": "https://images.unsplash.com/photo-1598270553906-e4537ca1ff88?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzOTB8MHwxfHNlYXJjaHwyfHx0cmF2ZWwlMjBsYW5kc2NhcGUlMjBtb3VudGFpbiUyMGJlYWNoJTIwY2l0eSUyMGR1c2slMjBoZXJvfGVufDB8fHx8MTc5NDIwNzk3MXww&ixlib=rb-4.1.0&q=85",
+    "beach_sunset": "https://images.unsplash.com/photo-1563656157432-67560011e209?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzOTB8MHwxfHNlYXJjaHwxfHx0cmF2ZWwlMjBsYW5kc2NhcGUlMjBtb3VudGFpbiUyMGJlYWNoJTIwY2l0eSUyMGR1c2slMjBoZXJvfGVufDB8fHx8MTc5NDIwNzk3MXww&ixlib=rb-4.1.0&q=85",
+    "night_city": "https://images.unsplash.com/photo-1550990170-0f147bc739a8?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzOTB8MHwxfHNlYXJjaHw0fHx0cmF2ZWwlMjBsYW5kc2NhcGUlMjBtb3VudGFpbiUyMGJlYWNoJTIwY2l0eSUyMGR1c2slMjBoZXJvfGVufDB8fHx8MTc5NDIwNzk3MXww&ixlib=rb-4.1.0&q=85",
+    "skyline_dusk": "https://images.unsplash.com/photo-1583647515542-f129dd697638?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzOTB8MHwxfHNlYXJjaHwzfHx0cmF2ZWwlMjBsYW5kc2NhcGUlMjBtb3VudGFpbiUyMGJlYWNoJTIwY2l0eSUyMGR1c2slMjBoZXJvfGVufDB8fHx8MTc5NDIwNzk3MXww&ixlib=rb-4.1.0&q=85"
+  },
+  "instructions_to_main_agent": [
+    "Mantener la interfaz íntegramente en Español.",
+    "Asegurar que todos los elementos interactivos y de datos incluyan el atributo `data-testid` (ejemplo: `data-testid='nav-item-mi-mundo'`).",
+    "Usar Tailwind CSS con el esquema de tema oscuro `#090A0F` y `#12141C` configurado.",
+    "Implementar la barra de navegación inferior fija para móviles y la barra lateral para escritorio.",
+    "Garantizar que no existan solapamientos de texto o contrastes deficientes sobre imágenes o dropdowns.",
+    "Proporcionar una experiencia fluida con estados de carga, estados vacíos, animaciones con Framer Motion y notificaciones Sonner."
+  ]
+}
